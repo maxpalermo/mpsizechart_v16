@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<module>
+	<name>mpsizechart</name>
+	<displayName><![CDATA[MP Size chart]]></displayName>
+	<version><![CDATA[1.0.0]]></version>
+	<description><![CDATA[With this module you can show your size chart in product page.]]></description>
+	<author><![CDATA[Digital Solutions&reg;]]></author>
+	<tab><![CDATA[administration]]></tab>
+	<confirmUninstall><![CDATA[Are you sure you want uninstall this module?]]></confirmUninstall>
+	<is_configurable>0</is_configurable>
+	<need_instance>0</need_instance>
+	<limited_countries></limited_countries>
+</module>
