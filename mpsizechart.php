@@ -44,7 +44,7 @@ class MpSizeChart extends Module
     {
         $this->name = 'mpsizechart';
         $this->tab = 'front-office-features';
-        $this->version = '1.2.0';
+        $this->version = '1.3.1';
         $this->author = 'massimiliano Palermo';
         $this->need_instance = 0;
         $this->module_key = '';
