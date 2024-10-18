@@ -46,6 +46,15 @@ class AdminMpSizeChartController extends ModuleAdminController
         $this->identifier = 'id_product';
         $this->className = 'MpSizeChartModelAttachments';
 
+        $this->bulk_actions = [
+            'delete_pdf' => [
+                'text' => $this->l('Elimina il PDF allegato dai prodotti selezionati'),
+                'confirm' => $this->l('Confermare la cancellazione dei PDF selezionati?'),
+                'icon' => 'icon-trash',
+                'href' => $this->context->link->getAdminLink($this->controller_name, true) . '&action=delete',
+            ],
+        ];
+
         parent::__construct();
 
         $this->id_lang = (int) ContextCore::getContext()->language->id;
@@ -133,8 +142,45 @@ class AdminMpSizeChartController extends ModuleAdminController
 
     public function processRemoveOrphans()
     {
-        $dir = $this->module->getLocalPath() . 'upload/';
-        $attachments = MpSizeChartModelAttachments::getAttachments();
+        $dir = MpSizeChartGetAttachment::getUploadFolder(false);
+        $attachments = MpSizeChartGetAttachment::getAttachmentList();
+        $total = 0;
+
+        $db = Db::getInstance();
+        $sql = new DbQuery();
+        $sql->select ('file_name')
+            ->from (MpSizeChartModelAttachments::$definition['table'])
+            ->where ('file_name IS NOT NULL');
+        $files = $db->executeS($sql);
+        if ($files) {
+            $file_list = array_unique(array_column($files, 'file_name'));
+            $file_att = array_unique(array_column($attachments, 'name'));
+
+            asort($file_list);
+            asort($file_att);
+
+            if (count($file_list) > count($file_att)) {
+                $orphans = array_diff($file_list, $file_att);
+            } else {
+                $orphans = array_diff($file_att, $file_list);
+            }
+
+            foreach ($orphans as $file) {
+                $file_path = $dir . $file;
+                if (file_exists($file_path)) {
+                    unlink($file_path);
+                    $total++;
+                }
+            }
+        }
+
+        if ($total) {
+            $this->confirmations[] = sprintf($this->l('Rimossi %d file orfani'), $total);
+
+            return true;
+        }
+
+        $this->warnings[] = $this->l('Nessun file orfano trovato');
     }
 
     public function processConvertTable()
@@ -225,13 +271,6 @@ class AdminMpSizeChartController extends ModuleAdminController
         $join_table = _DB_PREFIX_ . MpSizeChartModelAttachments::$definition['table'];
         $this->_join .= " LEFT JOIN `{$join_table}` m ON (m.id_product = a.id_product)";
         $this->_select = 'm.file_name, m.file_size, m.file_type, a.id_product as image';
-
-        $this->bulk_actions = [
-            'delete' => [
-                'text' => $this->l('Delete selected'),
-                'confirm' => $this->l('Delete selected items?'),
-            ],
-        ];
 
         $this->fields_list = [
             'image' => [
@@ -775,6 +814,45 @@ class AdminMpSizeChartController extends ModuleAdminController
         }
         if ($only_attachments) {
             $this->_where .= ' AND m.id_product IS NOT NULL';
+        }
+    }
+
+    public function processBulkDeletePDF()
+    {
+        $ids = $this->boxes;
+        $messages = [];
+        if (!$ids) {
+            return;
+        }
+        foreach ($ids as $id) {
+            $model = new MpSizeChartModelAttachments($id);
+            $product = new Product($id, false, $this->id_lang);
+
+            if (!Validate::isLoadedObject($model)) {
+                $this->warnings[] = sprintf(
+                    $this->l('Allegato non trovato per il prodotto %s'),
+                    $product->reference
+                );
+
+                continue;
+            }
+
+            $attachment = $model->file_name;
+
+            try {
+                $model->delete();
+                $messages[] = sprintf(
+                    $this->l('Allegato %s rimosso per il prodotto %s'),
+                    $attachment,
+                    $product->reference
+                );
+            } catch (\Throwable $th) {
+                $this->errors[] = $th->getMessage();
+            }
+        }
+
+        if ($messages) {
+            $this->confirmations[] = implode('<br>', $messages);
         }
     }
 }

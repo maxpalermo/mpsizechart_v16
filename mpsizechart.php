@@ -58,6 +58,8 @@ class MpSizeChart extends Module
 
         (new LoadClass($this))->load('MpSizeChartModelAttachments', 'models');
         (new LoadClass($this))->load('MpSizeChartGetAttachment', 'helpers');
+        (new LoadClass($this))->load('MpSizeChartInstallMenu', 'helpers');
+        (new LoadClass($this))->load('MpSizeChartInstallTable', 'helpers');
 
         $this->displayName = $this->l('MP Taglie');
         $this->description = $this->l('Con questo modulo puoi visualizzare le informazioni sulle taglie tramite PDF.');
@@ -70,53 +72,23 @@ class MpSizeChart extends Module
 
     public function install()
     {
+        $installMenu = new MpSizeChartInstallMenu($this);
+        $installtable = new MpSizeChartInstallTable($this);
+
         return parent::install()
             && $this->registerHook('displayAfterDescriptionShort')
             && $this->registerHook('actionAdminControllerSetMedia')
             && $this->registerHook('actionFrontControllerSetMedia')
-            && $this->installTab('AdminCatalog', $this->adminClassName, $this->l('MP Tabella Taglie'))
-            && $this->installSQL();
+            && $installMenu->installMenu($this->l('MP Taglia'), $this->adminClassName, 'AdminCatalog')
+            && $installtable->installFromSqlFile('product_size_chart_attachments');
     }
 
     public function uninstall()
     {
+        $installMenu = new MpSizeChartInstallMenu($this);
+
         return parent::uninstall()
-            && $this->uninstallTab($this->adminClassName);
-    }
-
-    public function installTab($parent, $class_name, $name, $active = 1)
-    {
-        // Create new admin tab
-        $tab = new Tab();
-
-        $tab->id_parent = (int) Tab::getIdFromClassName($parent);
-        $tab->name = [];
-
-        foreach (Language::getLanguages(true) as $lang) {
-            $tab->name[$lang['id_lang']] = $name;
-        }
-
-        $tab->class_name = $class_name;
-        $tab->module = $this->name;
-        $tab->active = $active;
-
-        if (!$tab->add()) {
-            $this->_errors[] = $this->l('Error during Tab install.');
-
-            return false;
-        }
-
-        return true;
-    }
-
-    public function uninstallTab($class_name)
-    {
-        $id_tab = (int) Tab::getIdFromClassName($class_name);
-        if ($id_tab) {
-            $tab = new Tab((int) $id_tab);
-
-            return $tab->delete();
-        }
+            && $installMenu->uninstallMenu($this->adminClassName);
     }
 
     public function installSQL()
@@ -137,16 +109,11 @@ class MpSizeChart extends Module
     public function hookActionAdminControllerSetMedia()
     {
         $this->context->controller->addCSS($this->getLocalPath() . 'views/css/icon-menu.css');
-
-        if (Tools::getValue('module_name') == $this->name) {
-            // $this->context->controller->addJS($this->_path.'views/js/back.js');
-            // $this->context->controller->addCSS($this->_path.'views/css/back.css');
-        }
     }
 
     public function hookActionFrontControllerSetMedia()
     {
-        // Nothing
+        $this->context->controller->addCSS($this->getLocalPath() . 'views/css/button-style.css');
     }
 
     public function hookDisplayAfterDescriptionShort($params)
@@ -165,7 +132,8 @@ class MpSizeChart extends Module
             return;
         }
 
-        $tpl = $this->context->smarty->createTemplate($this->getLocalPath() . '/views/templates/front/displayButton.tpl');
+        $tpl_file = $this->getLocalPath() . '/views/templates/front/displayButton.tpl';
+        $tpl = $this->context->smarty->createTemplate($tpl_file);
         $tpl->assign(
             [
                 'id_product' => $id_product,
