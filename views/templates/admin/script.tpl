@@ -242,5 +242,19 @@
 
             return false;
         });
+
+        $("#page-header-desc-product-refresh_data").on("click", function(e) {
+            if (!confirm("Sei sicuro di voler aggiornare i dati?")) {
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        $("#page-header-desc-product-remove_orphans").on("click", function(e) {
+            if (!confirm("Sei sicuro di voler eliminare gli allegati orfani?")) {
+                e.preventDefault();
+                return false;
+            }
+        });
     });
 </script>

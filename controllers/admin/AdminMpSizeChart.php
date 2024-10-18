@@ -106,11 +106,11 @@ class AdminMpSizeChartController extends ModuleAdminController
             'icon' => 'process-icon-trash text-danger',
         ];
 
-        $this->page_header_toolbar_btn['convert_v2'] = [
-            'href' => $this->context->link->getAdminLink($this->controller_name, true) . '&action=convert_table',
-            'desc' => $this->l('Converti alla nuova versione'),
+        $this->page_header_toolbar_btn['refresh_data'] = [
+            'href' => $this->context->link->getAdminLink($this->controller_name, true) . '&action=refresh_data',
+            'desc' => $this->l('Aggiorna le informazioni della tabella'),
             'icon' => 'process-icon-refresh',
-            'confirm' => $this->l('Sei sicuro di voler convertire la tabella? Saranno eliminati tutti i file non associati.'),
+            'confirm' => $this->l('Sei sicuro di voler aggiornare la tabella? Saranno sovrascritti tutti i dati delle immagini.'),
         ];
 
         $this->page_header_toolbar_btn['ok'] = [
@@ -181,6 +181,55 @@ class AdminMpSizeChartController extends ModuleAdminController
         }
 
         $this->warnings[] = $this->l('Nessun file orfano trovato');
+    }
+
+    public function processRefreshData()
+    {
+        $db = Db::getInstance();
+        $sql = new DbQuery();
+        $sql->select('id_product')
+            ->from(MpSizeChartModelAttachments::$definition['table']);
+        $result = $db->executeS($sql);
+        $total = 0;
+
+        if ($result) {
+            foreach ($result as $item) {
+                $model = new MpSizeChartModelAttachments($item['id_product']);
+                $product = new Product($item['id_product'], false, $this->id_lang);
+                if (!Validate::isLoadedObject($model)) {
+                    continue;
+                }
+                $filename = $model->file_name;
+                $upload_folder = MpSizeChartGetAttachment::getUploadFolder(false);
+                $filepath = $upload_folder . $filename;
+                if (file_exists($filepath)) {
+                    $file_info = new SplFileInfo($filepath);
+                    $model->file_size = $file_info->getSize();
+                    $model->file_type = mime_content_type($filepath);
+                    $model->file_path = rtrim(trim($upload_folder), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+
+                    try {
+                        $model->update();
+                        $total++;
+                    } catch (\Throwable $th) {
+                        $this->errors[] = sprintf(
+                            $this->l('Errore durante l\'aggiornamento del file %s per il prodotto %s: %s'),
+                            $filename,
+                            $product->reference,
+                            $th->getMessage()
+                        );
+                    }
+                } else {
+                    $this->warnings[] = sprintf(
+                        $this->l('File %s non trovato per il prodotto %s'),
+                        $filename,
+                        $product->reference
+                    );
+                }
+            }
+        }
+
+        $this->confirmations[] = sprintf($this->l('Aggiornati %d prodotti'), $total);
     }
 
     public function processConvertTable()
